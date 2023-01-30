@@ -17,30 +17,59 @@ jobs:
       tagcreated: ${{ steps.autotag.outputs.tagcreated }}
       tagname: ${{ steps.autotag.outputs.tagname }}
     steps:
-    - uses: actions/checkout@v3.3.0
-    - uses: butlerlogic/action-autotag@stable
-      id: autotag
-      with:
-        head_branch: master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v3.3.0
+      - uses: butlerlogic/action-autotag@stable
+        id: autotag
+        with:
+          head_branch: master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3.3
+
+      - name: Run tests
+        run: |
+          if [ -f docker-compose.test.yml ]; then
+            docker-compose --file docker-compose.test.yml build
+            docker-compose --file docker-compose.test.yml run sut
+          else
+            docker build . --file Dockerfile
+          fi   
+
+  test-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.3
+      - name: Extract package.json version
+        run: export VERSION=$(jq '.version' package.json)
+      - name: Extract action.yml version
+        uses: mikefarah/yq@master
+        id: action_image
+        with:
+          cmd: yq '.runs.image' 'action.yml'
+      - name: Compare versions
+        run: [[ $IMAGE_VERSION == $VERSION ]]
+        env:
+          IMAGE_VERSION: ${{ steps.action_image.outputs.result }}
 
   publish:
     runs-on: ubuntu-latest 
+    if: github.event_name == 'push'
     permissions: 
       packages: write 
-    needs: [tag]
+    needs: [tag, test-image, test-versions]
     # important, only triggers if tag was created
     if: needs.tag.outputs.tagname != ''
     steps:
       - uses: actions/checkout@v3
-
       - name: Build image
         run: docker build . --file Dockerfile --tag $IMAGE_NAME
-
       - name: Log into registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
-
       - name: Push image
         run: |
           IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME
@@ -58,8 +87,7 @@ jobs:
           [ "$VERSION" == "main" ] && VERSION=latest
 
           echo IMAGE_ID=$IMAGE_ID
-          echo "IMAGE_ID is $IMAGE_ID"
-          echo "VERSION is $VERSION"
+          echo VERSION=$VERSION
 
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION   
