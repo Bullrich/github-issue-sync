@@ -1,46 +1,39 @@
-name: Docker
-
-on: 
+name: Publish package to GitHub Packages
+on:
   push:
-    - main
-
-  # Run tests for any PRs.
-  pull_request:
+    branches:
+      - test
 
 env:
   # TODO: Change variable to your image's name.
-  IMAGE_NAME: example
+  IMAGE_NAME: action
 
 jobs:
-  test:
+  tag:
     runs-on: ubuntu-latest
-
+    permissions: 
+      contents: write
+    outputs:
+      tagcreated: ${{ steps.autotag.outputs.tagcreated }}
+      tagname: ${{ steps.autotag.outputs.tagname }}
     steps:
-      - uses: actions/checkout@v2
+    - uses: actions/checkout@v3.3.0
+    - uses: butlerlogic/action-autotag@stable
+      id: autotag
+      with:
+        head_branch: master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run tests
-        run: |
-          if [ -f docker-compose.test.yml ]; then
-            docker-compose --file docker-compose.test.yml build
-            docker-compose --file docker-compose.test.yml run sut
-          else
-            docker build . --file Dockerfile
-          fi          
-
-  # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
-  push:
-    # Ensure test job passes before pushing image.
-    needs: test
-
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-     
+  publish:
+    runs-on: ubuntu-latest 
     permissions: 
       packages: write 
-
+    needs: [tag]
+    # important, only triggers if tag was created
+    if: needs.tag.outputs.tagname != ''
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build image
         run: docker build . --file Dockerfile --tag $IMAGE_NAME
@@ -59,13 +52,16 @@ jobs:
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
 
           # Strip "v" prefix from tag name
-          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          [[ ! -z $TAG ]] && VERSION=$(echo $TAG | sed -e 's/^v//')
 
           # Use Docker `latest` tag convention
           [ "$VERSION" == "main" ] && VERSION=latest
 
           echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
+          echo "IMAGE_ID is $IMAGE_ID"
+          echo "VERSION is $VERSION"
 
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION   
+        env:
+          TAG: ${{ needs.tag.outputs.tagname }}
