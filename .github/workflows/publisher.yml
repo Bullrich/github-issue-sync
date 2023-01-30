@@ -35,6 +35,7 @@ jobs:
           cmd: yq '.runs.image' 'action.yml'
       - name: Compare versions
         run: |
+          echo "Verifying that $IMAGE_VERSION from action.yml is the same as $VERSION from package.json"
           [[ $IMAGE_VERSION == $VERSION ]]
         env:
           IMAGE_VERSION: ${{ steps.action_image.outputs.result }}
