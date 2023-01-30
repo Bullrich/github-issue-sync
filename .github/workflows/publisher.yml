@@ -9,29 +9,10 @@ env:
   IMAGE_NAME: action
 
 jobs:
-  tag:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions: 
-      contents: write
-    outputs:
-      tagcreated: ${{ steps.autotag.outputs.tagcreated }}
-      tagname: ${{ steps.autotag.outputs.tagname }}
-    steps:
-      - uses: actions/checkout@v3.3.0
-      - uses: butlerlogic/action-autotag@stable
-        id: autotag
-        with:
-          head_branch: master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   test-image:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3.3.0
-
       - name: Run tests
         run: |
           if [ -f docker-compose.test.yml ]; then
@@ -58,11 +39,29 @@ jobs:
         env:
           IMAGE_VERSION: ${{ steps.action_image.outputs.result }}
 
+  tag:
+    if: github.event_name == 'push'
+    needs: [test-image, test-versions]
+    runs-on: ubuntu-latest
+    permissions: 
+      contents: write
+    outputs:
+      tagcreated: ${{ steps.autotag.outputs.tagcreated }}
+      tagname: ${{ steps.autotag.outputs.tagname }}
+    steps:
+      - uses: actions/checkout@v3.3.0
+      - uses: butlerlogic/action-autotag@stable
+        id: autotag
+        with:
+          head_branch: master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   publish:
     runs-on: ubuntu-latest 
     permissions: 
       packages: write 
-    needs: [tag, test-image, test-versions]
+    needs: [tag]
     # important, only triggers if tag was created
     if: needs.tag.outputs.tagname != ''
     steps:
