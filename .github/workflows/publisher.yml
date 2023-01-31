@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v3.3.0
       - name: Extract package.json version
         id: package_version
-        run: echo "VERSION=$(jq '.version' package.json)" >> $GITHUB_OUTPUT
+        run: echo "VERSION=$(jq '.version' -r package.json)" >> $GITHUB_OUTPUT
       - name: Extract action.yml version
         uses: mikefarah/yq@master
         id: action_image
