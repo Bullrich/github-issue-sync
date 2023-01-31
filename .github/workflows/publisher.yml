@@ -37,14 +37,13 @@ jobs:
       - name: Parse action.yml version
         id: action_version
         run: |
-          echo "$IMAGE_URL" > action_version.txt
-          echo "IMAGE_VERSION=$(cut -d: -f3 action_version.yml)" >> $GITHUB_OUTPUT
+          echo "IMAGE_VERSION=$(echo $IMAGE_URL | cut -d: -f3)" >> $GITHUB_OUTPUT
         env:
           IMAGE_URL: ${{ steps.action_image.outputs.result }}
       - name: Compare versions
         run: |
-          echo "Verifying that $IMAGE_VERSION from action.yml is the same as $VERSION from package.json"
-          [[ $IMAGE_VERSION == $VERSION ]]
+          echo "Verifying that $IMAGE_VERSION from action.yml is the same as $PACKAGE_VERSION from package.json"
+          [[ $IMAGE_VERSION == $PACKAGE_VERSION ]]
         env:
           IMAGE_VERSION: ${{ steps.action_version.outputs.IMAGE_VERSION }}
           PACKAGE_VERSION: ${{ steps.package_version.outputs.VERSION }}
