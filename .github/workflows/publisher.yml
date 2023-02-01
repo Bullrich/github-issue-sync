@@ -62,6 +62,9 @@ jobs:
   create-release:
     name: Create Release
     needs: [tag]
+    if: needs.tag.outputs.tagname != ''
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
