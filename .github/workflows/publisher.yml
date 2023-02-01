@@ -56,6 +56,7 @@ jobs:
         id: autotag
         with:
           head_branch: master
+          tag_prefix: "v"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
