@@ -52,6 +52,8 @@ jobs:
       tagname: ${{ steps.autotag.outputs.tagname }}
     steps:
       - uses: actions/checkout@v3.3.0
+        with:
+          fetch-depth: 0
       - uses: butlerlogic/action-autotag@stable
         id: autotag
         with:
@@ -59,41 +61,27 @@ jobs:
           tag_prefix: "v"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  create-release:
-    name: Create Release
-    needs: [tag]
-    if: needs.tag.outputs.tagname != ''
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3.3.0
-        with:
-          fetch-depth: 0
       - name: Changelog
         uses: Bullrich/generate-release-changelog@master
         id: Changelog
         env:
           REPO: ${{ github.repository }}
       - name: Create Release
+        if: steps.autotag.outputs.tagname != ''
         uses: actions/create-release@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ needs.tag.outputs.tagname }}
-          release_name: Release ${{ needs.tag.outputs.tagname }}
+          tag_name: ${{ steps.autotag.outputs.tagname }}
+          release_name: Release ${{ steps.autotag.outputs.tagname }}
           body: |
             ${{ steps.Changelog.outputs.changelog }}
-
 
   publish:
     runs-on: ubuntu-latest
     permissions:
       packages: write
     needs: [tag]
-    # important, only triggers if tag was created
     if: needs.tag.outputs.tagname != ''
     steps:
       - uses: actions/checkout@v3
